@@ -20,14 +20,16 @@ public class Chassis {
     public DcMotorEx leftRearMotor = null;
     public DcMotorEx rightRearMotor = null;
     BNO055IMU imu;
-    ElapsedTime runtime = new ElapsedTime();
+    ElapsedTime runtime = new ElapsedTime(ElapsedTime.Resolution.MILLISECONDS);
+    ElapsedTime pidTimer = new ElapsedTime(ElapsedTime.Resolution.MILLISECONDS);
     // declare motor speed variables
     double RR;
     double LR;
     // declare joystick position variables
     double Drive, Rotate;
     LinearOpMode opMode;
-
+    PIDFCoefficients pidDrive;
+    PIDFCoefficients pidRotate;
     double motorMax = 1; // Limit motor power to this value for Andymark RUN_USING_ENCODER mode
 
     public Chassis() {
@@ -41,13 +43,13 @@ public class Chassis {
          * parameters to 'get' must correspond to the names assigned during the robot
          * configuration step (using the FTC Robot Controller app on the phone).
          */
-        leftRearMotor = (DcMotorEx) opMode.hardwareMap.dcMotor.get("lr");
-        rightRearMotor = (DcMotorEx) opMode.hardwareMap.dcMotor.get("rr");
+        leftRearMotor = (DcMotorEx) opMode.hardwareMap.dcMotor.get("l");
+        rightRearMotor = (DcMotorEx) opMode.hardwareMap.dcMotor.get("r");
         imu = opMode.hardwareMap.get(BNO055IMU.class, "imu");
 
-        PIDFCoefficients pid = new PIDFCoefficients(5.0, 0.20, 0.0, 12.0);
-        leftRearMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pid);
-        rightRearMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pid);
+        pidDrive = new PIDFCoefficients(1.0, 0.20, 0.0, 25.0);
+        pidRotate = new PIDFCoefficients(1.0, 0.20, 0.0, 25.0);
+        
 
         // Set the drive motor direction:
         leftRearMotor.setDirection(DcMotor.Direction.FORWARD);
@@ -60,40 +62,37 @@ public class Chassis {
         rightRearMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
     }
-    public void rotateToAngle(double angle, double velocity, double timeOut){
-        rotateToAngle(angle, velocity, timeOut, false);
-    }
-    public void rotateToAngle(double angle, double velocity, double timeOut, boolean waitForTimeOut) {
+
+    public void rotateToAngle(double angle, double velocity, double timeOut) {
         boolean isBusy = true;
         double val = 0.0;
-        PIDController pid = new PIDController(6.20, 0.035, 0.0);
+        PIDController pid = new PIDController(3.50, 0.02, 0.0);
 
-        pid.setOutputRange(130.0, velocity);
+        pid.setOutputRange(140.0, velocity);
         pid.setInputRange(0.0, 180.0);
         pid.setTolerance(0.5); // 0.5 = 0.9Deg
         pid.setSetpoint(angle);
         pid.enable();
-        runtime.reset();
+        runtime.reset(); pidTimer.reset();
+        
         while (isBusy && runtime.seconds() < timeOut) {
             val = pid.performPID(getAngle());
-            // opMode.telemetry.addData("PID ", "val = (%.2f)", val);
-            // opMode.telemetry.addData("Gyro ", "Deg = (%.2f)", Darth.imuInt.getAngle());
-            // opMode.telemetry.update();
+             opMode.telemetry.addData("PID ", "val = (%.2f)", val);
+             opMode.telemetry.addData("Gyro ", "Deg = (%.2f)", Darth.imuInt.getAngle());
+             opMode.telemetry.update();
             rotateAtVelocity(val);
-            if (pid.onTarget(8) && !waitForTimeOut) {
+            if (pid.onTarget(16)) {
                 isBusy = false;
             }
+            while(pidTimer.seconds() < 0.020){} pidTimer.reset();
         }
         pid.disable();
         disableMotors();
-        setMotorMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         opMode.telemetry.addData("Gyro ", "Deg = (%.2f)", Darth.imuInt.getAngle());
         opMode.telemetry.update();
     }
-    public void driveToInches(double inches, double velocity, double timeOut){
-        driveToInches(inches, velocity, timeOut, false);
-    }
-    public void driveToInches(double inches, double velocity, double timeOut, boolean waitForTimeOut) {
+
+    public void driveToInches(double inches, double velocity, double timeOut) {
         boolean isBusy = true;
         double val = 0.0;
         PIDController pid = new PIDController(17.20, 0.05, 0.0);
@@ -103,20 +102,21 @@ public class Chassis {
         pid.setTolerance(0.50); // 0.5 = 0.36 inch
         pid.setSetpoint(inches);
         pid.enable();
-        runtime.reset();
+        runtime.reset(); pidTimer.reset();
 
         while (isBusy && runtime.seconds() < timeOut) {
             val = pid.performPID(getDistanceInches());
             opMode.telemetry.addData("PID ", "val = (%.2f)", val);
-            opMode.telemetry.addData("Dis ", "In = (%.2f)", getDistance());
+            opMode.telemetry.addData("Dis ", "In = (%.2f)", getDistanceInches());
+            opMode.telemetry.addData("Time ", "ms = (%.2f)", runtime.seconds());
+            //opMode.telemetry.addData("Time ", "ms = (%.2f)", pidTimer.seconds());
             opMode.telemetry.update();
-            // opMode.telemetry.addData("PID ", "val = (%.2f)", val);
-            // opMode.telemetry.addData("Gyro ", "Deg = (%.2f)", Darth.imuInt.getAngle());
-            // opMode.telemetry.update();
+
             driveAtVelocity(val);
-            if (pid.onTarget(8) && !waitForTimeOut) {
+            if (pid.onTarget(16)) {
                 isBusy = false;
             }
+            while(pidTimer.milliseconds() < 20){} pidTimer.reset();
         }
         pid.disable();
         disableMotors();
@@ -140,14 +140,40 @@ public class Chassis {
         leftRearMotor.setPower(lr);
         rightRearMotor.setPower(rr);
     }
+    public void drive(double drv, double rot, double timeOut) {
+        double l, r = 0;
 
+        // Calculate Motor values
+        l = drv + rot;
+        r = drv - rot;
+
+        // Clip motor power values to +-motorMax
+        l = Range.clip(l, -motorMax, motorMax);
+        r = Range.clip(r, -motorMax, motorMax);
+        
+        setMotorMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+    
+    
+        runtime.reset();
+        while (runtime.seconds() < timeOut) {
+            leftRearMotor.setPower(l);
+            rightRearMotor.setPower(r);
+        }
+        leftRearMotor.setPower(0);
+        rightRearMotor.setPower(0);
+
+    }
     public void driveAtVelocity(double velocity) {
+        leftRearMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidDrive);
+        rightRearMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidDrive);
         setMotorMode(DcMotor.RunMode.RUN_USING_ENCODER);
         leftRearMotor.setVelocity(velocity, AngleUnit.DEGREES);
         rightRearMotor.setVelocity(velocity, AngleUnit.DEGREES);
     }
 
     public void rotateAtVelocity(double velocity) {
+        leftRearMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidRotate);
+        rightRearMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidRotate);
         setMotorMode(DcMotor.RunMode.RUN_USING_ENCODER);
         leftRearMotor.setVelocity(-velocity, AngleUnit.DEGREES);
         rightRearMotor.setVelocity(velocity, AngleUnit.DEGREES);
