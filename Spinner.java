@@ -14,7 +14,7 @@ public class Spinner {
     DcMotor leftSpinnerMotor;
     DcMotor rightSpinnerMotor;
     
-    ElapsedTime runtime = new ElapsedTime();
+    ElapsedTime runtime = new ElapsedTime(ElapsedTime.Resolution.MILLISECONDS);
     public Spinner(){
         
     }
@@ -50,17 +50,32 @@ public class Spinner {
         runtime.reset();
         while(runtime.seconds() < timeOut){
             leftSpinnerMotor.setPower(1.0);
-            Darth.chassis.drive(0.1,0);
         }
         leftSpinnerMotor.setPower(0.0);
     }
-
+    public void spinLeft(double timeOut, double drive, double rotate){
+        runtime.reset();
+        while(runtime.seconds() < timeOut){
+            leftSpinnerMotor.setPower(1.0);
+            Darth.chassis.drive(drive,rotate);
+        }
+        Darth.chassis.disableMotors();
+        leftSpinnerMotor.setPower(0.0);
+    }
     public void spinRight(double timeOut){
         runtime.reset();
         while(runtime.seconds() < timeOut){
             rightSpinnerMotor.setPower(1.0);
-            Darth.chassis.drive(0.1,0);
         }
+        rightSpinnerMotor.setPower(0.0);
+    }
+    public void spinRight(double timeOut, double drive, double rotate){
+        runtime.reset();
+        while(runtime.seconds() < timeOut){
+            rightSpinnerMotor.setPower(1.0);
+            Darth.chassis.drive(drive,rotate);
+        }
+        Darth.chassis.disableMotors();
         rightSpinnerMotor.setPower(0.0);
     }
     

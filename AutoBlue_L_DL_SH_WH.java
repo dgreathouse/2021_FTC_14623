@@ -7,8 +7,8 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 @Autonomous(name="Blue Left Delay->ShippingHub->Warehouse", group="Blue")
 
 public class AutoBlue_L_DL_SH_WH extends LinearOpMode {
-    private ElapsedTime runtime = new ElapsedTime();
-    int level = 4;
+    private ElapsedTime runtime = new ElapsedTime(ElapsedTime.Resolution.MILLISECONDS);
+    LevelEnum level = LevelEnum.UP;
     
     @Override
     public void runOpMode() {
@@ -28,8 +28,8 @@ public class AutoBlue_L_DL_SH_WH extends LinearOpMode {
         runtime.reset();
         
         while(opModeIsActive()) {
-            level = disSensor.getLevel(3);                                      // Get level from distance sensor
-            levelDistance = levelDistance + (3-level)* 1.5;                     // Calculate the distance to travel for the given level
+            level = disSensor.getLevel(LevelEnum.L3);                           // Get level from distance sensor
+            levelDistance = disSensor.getLevelDistance(level);                  // Calculate the distance to travel for the given level
             claw.close();                                                       // Claw Close
 
             stop();

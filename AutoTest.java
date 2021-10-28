@@ -1,15 +1,14 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
-import java.util.logging.Level;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
-@Autonomous(name="Blue Left ShippingHub->Warehouse", group="Blue")
+@Autonomous(name="Auto Test", group="_Test")
 
-public class AutoBlue_L_SH_WH extends LinearOpMode {
+public class AutoTest extends LinearOpMode {
     private ElapsedTime runtime = new ElapsedTime(ElapsedTime.Resolution.MILLISECONDS);
-    LevelEnum level = LevelEnum.UP;
+    int level = 4;
     
     @Override
     public void runOpMode() {
@@ -29,10 +28,10 @@ public class AutoBlue_L_SH_WH extends LinearOpMode {
         runtime.reset();
         
         while(opModeIsActive()) {
-            level = disSensor.getLevel(LevelEnum.L3);                           // Get level from distance sensor
-            levelDistance = disSensor.getLevelDistance(level);                  // Calculate the distance to travel for the given level
-            claw.close();                                                       // Claw Close
-
+         //   level = disSensor.getLevel(3);                                      // Get level from distance sensor
+         //   levelDistance = levelDistance + (3-level)* 1.5;                     // Calculate the distance to travel for the given level
+         //   claw.close();                                                       // Claw Close
+            chassis.rotateToAngle(-90.0, 550.0, 5.0);
             stop();
         }
         // Stop all motors if needed

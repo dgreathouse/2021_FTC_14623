@@ -7,8 +7,8 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 @Autonomous(name="Blue Right Spinner->ShippingHub->StorageUnit", group="Blue")
 
 public class AutoBlue_R_SP_SH_SU extends LinearOpMode {
-    private ElapsedTime runtime = new ElapsedTime();
-    int level = 4;
+    private ElapsedTime runtime = new ElapsedTime(ElapsedTime.Resolution.MILLISECONDS);
+    LevelEnum level = LevelEnum.UP;
     
     @Override
     public void runOpMode() {
@@ -28,18 +28,19 @@ public class AutoBlue_R_SP_SH_SU extends LinearOpMode {
         runtime.reset();
         
         while(opModeIsActive()) {
-            level = disSensor.getLevel(1);                                      // Get level from distance sensor
-            levelDistance = levelDistance + (3-level)* 1.5;                     // Calculate the distance to travel for the given level
+            level = disSensor.getLevel(LevelEnum.L1);                           // Get level from distance sensor
+            levelDistance = disSensor.getLevelDistance(level);                  // Calculate the distance to travel for the given level
             claw.close();                                                       // Claw Close
-
+            
             stop();
         }
-        // Stop all motors if needed
+        
     }    
 
 }
  /* Method Doc
  chassis.driveToInches(Inches, Velocity, timeOut)
+ chassis.drive(drv,rot,timeOut)
  chassis.rotateToAngle(Angle(Deg), Velocity, timeout)
  armRotateToLevel(Level to rotate to) 0=Down, 1=L1, 2=L2, 3=L3, 4=Up
  spinner.spinRight(Seconds to spin)  This also drives forward at low power

@@ -1,7 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.hardware.DistanceSensor;
-import java.util.logging.Level;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
@@ -16,11 +15,12 @@ public class DisSensor {
     Servo dsServo;
     LinearOpMode opMode;
     boolean isLevelFound = false;
-    public int level = 1;
+    public LevelEnum level = LevelEnum.L1;
     int searchingLevel = 1;
     double position;
     double distance = 0.0;
-    private ElapsedTime runtime = new ElapsedTime();
+    double levelDistance = -19;
+    private ElapsedTime runtime = new ElapsedTime(ElapsedTime.Resolution.MILLISECONDS);
     public void init(LinearOpMode opMode){
         
         this.opMode = opMode;
@@ -49,9 +49,9 @@ public class DisSensor {
     /*
         Return the level the Team Shipping Element is at for the start of Auto
     */
-    public int getLevel(int startingLevel){
+    public LevelEnum getLevel(LevelEnum startingLevel){
         double locationOfLevel2 = Cals.kDisSensorServoPos2R;
-        if(startingLevel == 3){
+        if(startingLevel == LevelEnum.L3){
             locationOfLevel2 = Cals.kDisSensorServoPos2L;
         }
         // Set the servo to postion 1. This should have been where it was set before the match.
@@ -76,14 +76,24 @@ public class DisSensor {
         distance = getDistanceAverage(8);
         // If the averaged distance is less than 50 inches then return level 2
         if(distance < 25 && distance > 10) {
-            return 2;
+            return LevelEnum.L2;
         }else { // else we will assume it is level 3 and return 3
-            if(startingLevel == 3){
-                return 1;
+            if(startingLevel == LevelEnum.L3){
+                return LevelEnum.L1;
             }else {
-                return 3;    
+                return LevelEnum.L3;    
             }
-            
+        }
+    }
+    public double getLevelDistance(LevelEnum level){
+        if(level == LevelEnum.L3){
+            return levelDistance;
+        }else if(level == LevelEnum.L2){
+            return levelDistance + 1.5;
+        }else if(level == LevelEnum.L1){
+            return levelDistance + 3;
+        }else {
+            return levelDistance + 3;
         }
     }
 }

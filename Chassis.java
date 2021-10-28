@@ -16,9 +16,15 @@ import com.qualcomm.robotcore.util.Range;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
 public class Chassis {
+    public DcMotorEx motBackLeft = null;
+    public DcMotorEx motBackRight = null;
+    public DcMotorEx motFrontLeft = null;
+    public DcMotorEx motFrontRight = null;
 
-    public DcMotorEx leftRearMotor = null;
-    public DcMotorEx rightRearMotor = null;
+    // public DcMotorEx leftRearMotor = null;
+    // public DcMotorEx rightRearMotor = null;
+    // public DcMotorEx leftFrontMotor = null;
+    // public DcMotorEx rightFrontMotor = null;
     BNO055IMU imu;
     ElapsedTime runtime = new ElapsedTime(ElapsedTime.Resolution.MILLISECONDS);
     ElapsedTime pidTimer = new ElapsedTime(ElapsedTime.Resolution.MILLISECONDS);
@@ -38,31 +44,44 @@ public class Chassis {
     public void init(LinearOpMode opMode) {
         this.opMode = opMode;
 
-        /*
-         * Initialize the hardware variables. Note that the strings used here as
-         * parameters to 'get' must correspond to the names assigned during the robot
-         * configuration step (using the FTC Robot Controller app on the phone).
-         */
-        leftRearMotor = (DcMotorEx) opMode.hardwareMap.dcMotor.get("l");
-        rightRearMotor = (DcMotorEx) opMode.hardwareMap.dcMotor.get("r");
+        motBackLeft = (DcMotorEx) opMode.hardwareMap.dcMotor.get("lr");
+        motBackRight = (DcMotorEx) opMode.hardwareMap.dcMotor.get("rr");
+        motFrontLeft = (DcMotorEx) opMode.hardwareMap.dcMotor.get("lf");
+        motFrontRight = (DcMotorEx) opMode.hardwareMap.dcMotor.get("rf");
+        
         imu = opMode.hardwareMap.get(BNO055IMU.class, "imu");
-
-        pidDrive = new PIDFCoefficients(1.0, 0.20, 0.0, 25.0);
-        pidRotate = new PIDFCoefficients(1.0, 0.20, 0.0, 25.0);
+        
+        // PIDF values are for velocity control of the motor controller
+        // A zero for F term may allow a better velocity control using Legacy PID
+        pidDrive = new PIDFCoefficients(1.0, 0.20, 0.0, 0.0);
+        pidRotate = new PIDFCoefficients(1.0, 0.20, 0.0, 0.0);
         
 
         // Set the drive motor direction:
-        leftRearMotor.setDirection(DcMotor.Direction.FORWARD);
-        rightRearMotor.setDirection(DcMotor.Direction.REVERSE);
-
-        leftRearMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        rightRearMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-
-        leftRearMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        rightRearMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        motBackLeft.setDirection(DcMotor.Direction.FORWARD);
+        motBackRight.setDirection(DcMotor.Direction.REVERSE);
+        motFrontLeft.setDirection(DcMotor.Direction.FORWARD);
+        motFrontRight.setDirection(DcMotor.Direction.REVERSE);
+        
+        motBackLeft.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        motBackRight.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        motFrontLeft.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        motFrontRight.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        
+        motBackLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        motBackRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        motFrontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        motFrontRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
     }
-
+    /// <summary>
+    /// Rotate the robot
+    /// </summary>
+    /// <param name="angle">The angle in degrees to rotate to. Zero angle is 
+    ///                     from when the robot was turned on.
+    ///                     CW is minus, CCW is plus. </param>
+    /// <param name="velocity">The velocity to rotate at. Range is 150-750</param>
+    /// <param name="timeOut">The time to disable this call if not complete with reaching the angle</param>
     public void rotateToAngle(double angle, double velocity, double timeOut) {
         boolean isBusy = true;
         double val = 0.0;
@@ -77,9 +96,9 @@ public class Chassis {
         
         while (isBusy && runtime.seconds() < timeOut) {
             val = pid.performPID(getAngle());
-             opMode.telemetry.addData("PID ", "val = (%.2f)", val);
-             opMode.telemetry.addData("Gyro ", "Deg = (%.2f)", Darth.imuInt.getAngle());
-             opMode.telemetry.update();
+            opMode.telemetry.addData("PID ", "val = (%.2f)", val);
+            opMode.telemetry.addData("Gyro ", "Deg = (%.2f)", Darth.imuInt.getAngle());
+            opMode.telemetry.update();
             rotateAtVelocity(val);
             if (pid.onTarget(16)) {
                 isBusy = false;
@@ -91,7 +110,14 @@ public class Chassis {
         opMode.telemetry.addData("Gyro ", "Deg = (%.2f)", Darth.imuInt.getAngle());
         opMode.telemetry.update();
     }
-
+    /// <summary>
+    /// Drive the robot to a set Inches
+    /// </summary>
+    /// <param name="inches">The distance in inches to drive to. Every call to 
+    ///                      this method will reset the encoders to 0. Therefore
+    ///                      inhes is always starting at 0. </param>
+    /// <param name="velocity">The velocity to travel at. Range is 150-750</param>
+    /// <param name="timeOut">The time to disable this call if not complete with reaching the distance</param>
     public void driveToInches(double inches, double velocity, double timeOut) {
         boolean isBusy = true;
         double val = 0.0;
@@ -116,72 +142,103 @@ public class Chassis {
             if (pid.onTarget(16)) {
                 isBusy = false;
             }
-            while(pidTimer.milliseconds() < 20){} pidTimer.reset();
+            while(pidTimer.seconds() < 0.020){} pidTimer.reset();
         }
         pid.disable();
         disableMotors();
         setMotorMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        // opMode.telemetry.addData("Dis ", "in = (%.2f)", getDistanceInches());
-        // opMode.telemetry.update();
     }
-
+    /// <summary>
+    /// Drive the robot with inputs from the game pad. 
+    /// This is used in TeleOp. 
+    /// </summary>
+    /// <param name="drv">Range -1 to 1 Drive reverse and forward </param>
+    /// <param name="rot">Range -1 to 1 Rotate CCW and CW</param>
     public void drive(double drv, double rot) {
-        double lr, rr = 0;
-
+        double bl, br = 0;
+        double fl, fr = 0;
         // Calculate Motor values
-        lr = drv + rot;
-        rr = drv - rot;
+        bl = drv + rot;
+        br = drv - rot;
+        fl = bl;
+        fr = br;
 
         // Clip motor power values to +-motorMax
-        lr = Range.clip(lr, -motorMax, motorMax);
-        rr = Range.clip(rr, -motorMax, motorMax);
+        bl = Range.clip(bl, -motorMax, motorMax);
+        br = Range.clip(br, -motorMax, motorMax);
+        fl = Range.clip(fl, -motorMax, motorMax);
+        fr = Range.clip(fr, -motorMax, motorMax);
 
         // Send values to the motors
-        leftRearMotor.setPower(lr);
-        rightRearMotor.setPower(rr);
+        motBackLeft.setPower(bl);
+        motBackRight.setPower(br);
+        motFrontLeft.setPower(fl);
+        motFrontRight.setPower(fr);
     }
+        /// <summary>
+    /// This method should be used only in autonomous when a simple drive
+    /// at a power for a time is needed. Such as driving in to the warehouse
+    /// over the bumps to make sure the robot crosses the lines.
+    /// </summary>
+    /// <param name="drv">Range -1 to 1 Drive reverse and forward </param>
+    /// <param name="rot">Range -1 to 1 Rotate CCW and CW</param>
+    /// <param name="timeOut">The time to stop driving the robot. </param>
     public void drive(double drv, double rot, double timeOut) {
-        double l, r = 0;
-
+        
+        double bl, br = 0;
+        double fl, fr = 0;
         // Calculate Motor values
-        l = drv + rot;
-        r = drv - rot;
+        bl = drv + rot;
+        br = drv - rot;
+        fl = bl;
+        fr = br;
 
         // Clip motor power values to +-motorMax
-        l = Range.clip(l, -motorMax, motorMax);
-        r = Range.clip(r, -motorMax, motorMax);
-        
+        bl = Range.clip(bl, -motorMax, motorMax);
+        br = Range.clip(br, -motorMax, motorMax);
+        fl = Range.clip(fl, -motorMax, motorMax);
+        fr = Range.clip(fr, -motorMax, motorMax);
+
         setMotorMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-    
-    
+
         runtime.reset();
         while (runtime.seconds() < timeOut) {
-            leftRearMotor.setPower(l);
-            rightRearMotor.setPower(r);
+            motBackLeft.setPower(bl);
+            motBackRight.setPower(br);
+            motFrontLeft.setPower(fl);
+            motFrontRight.setPower(fr);
         }
-        leftRearMotor.setPower(0);
-        rightRearMotor.setPower(0);
-
+        disableMotors();
     }
-    public void driveAtVelocity(double velocity) {
-        leftRearMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidDrive);
-        rightRearMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidDrive);
+    private void driveAtVelocity(double velocity) {
+        motBackLeft.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidDrive);
+        motBackRight.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidDrive);
+        motFrontLeft.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidDrive);
+        motFrontRight.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidDrive);
         setMotorMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        leftRearMotor.setVelocity(velocity, AngleUnit.DEGREES);
-        rightRearMotor.setVelocity(velocity, AngleUnit.DEGREES);
+        motBackLeft.setVelocity(velocity, AngleUnit.DEGREES);
+        motBackRight.setVelocity(velocity, AngleUnit.DEGREES);
+        motFrontLeft.setVelocity(velocity, AngleUnit.DEGREES);
+        motFrontRight.setVelocity(velocity, AngleUnit.DEGREES);
     }
 
-    public void rotateAtVelocity(double velocity) {
-        leftRearMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidRotate);
-        rightRearMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidRotate);
+    private void rotateAtVelocity(double velocity) {
+        motBackLeft.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidRotate);
+        motBackRight.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidRotate);
+        motFrontLeft.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidRotate);
+        motFrontRight.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidRotate);
         setMotorMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        leftRearMotor.setVelocity(-velocity, AngleUnit.DEGREES);
-        rightRearMotor.setVelocity(velocity, AngleUnit.DEGREES);
+        motBackLeft.setVelocity(-velocity, AngleUnit.DEGREES);
+        motBackRight.setVelocity(velocity, AngleUnit.DEGREES);
+        motFrontLeft.setVelocity(-velocity, AngleUnit.DEGREES);
+        motFrontRight.setVelocity(velocity, AngleUnit.DEGREES);
     }
 
     private void setMotorMode(DcMotor.RunMode mode) {
-        leftRearMotor.setMode(mode);
-        rightRearMotor.setMode(mode);
+        motBackLeft.setMode(mode);
+        motBackRight.setMode(mode);
+        motFrontLeft.setMode(mode);
+        motFrontRight.setMode(mode);
     }
 
     public double getAngle() {
@@ -193,20 +250,22 @@ public class Chassis {
     }
 
     public double getDistance() {
-        return (leftRearMotor.getCurrentPosition() + rightRearMotor.getCurrentPosition()) / 2.0;
+        return (motBackLeft.getCurrentPosition() + motBackRight.getCurrentPosition()) / 2.0;
     }
 
     public int getLeftMotorPosition() {
-        return leftRearMotor.getCurrentPosition();
+        return (motBackLeft.getCurrentPosition() + motFrontLeft.getCurrentPosition())/2;
     }
 
     public int getRightMotorPosition() {
-        return rightRearMotor.getCurrentPosition();
+        return (motBackRight.getCurrentPosition() + motFrontRight.getCurrentPosition())/2;
     }
 
-    private void disableMotors() {
+    public void disableMotors() {
         setMotorMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        leftRearMotor.setPower(0.0);
-        rightRearMotor.setPower(0.0);
+        motBackLeft.setPower(0.0);
+        motBackRight.setPower(0.0);
+        motFrontLeft.setPower(0.0);
+        motFrontRight.setPower(0.0);
     }
 }
